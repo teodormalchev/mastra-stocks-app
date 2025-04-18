@@ -27,63 +27,73 @@ export const stockTool = createTool({
     message: z.string().optional(),
   }),
   execute: async ({ context }) => {
-    // Extract parameters from the context object
-    const symbol = context.symbol;
-    const dataFunction = context.function;
+    return await getStockData(context.symbol, context.function);
+  },
+});
+
+type DataFunction = "GLOBAL_QUOTE" | "TIME_SERIES_DAILY" | "TIME_SERIES_WEEKLY" | "TIME_SERIES_MONTHLY";
+
+interface StockDataResult {
+    symbol: string;
+    data: any | null;
+    lastRefreshed?: string;
+    message?: string;
+  }
+
+const getStockData = async(symbol: string, dataFunction: DataFunction): Promise<StockDataResult> => {
     try {
-      const response = await axios.get("https://www.alphavantage.co/query", {
+    const response = await axios.get("https://www.alphavantage.co/query", {
         params: {
-          function: dataFunction,
-          symbol,
-          apikey: API_KEY,
+        function: dataFunction,
+        symbol,
+        apikey: API_KEY,
         },
-      });
+    });
 
-      // Handle API errors or rate limiting
-      if (response.data?.Note) {
+    // Handle API errors or rate limiting
+    if (response.data?.Note) {
         return {
-          symbol,
-          data: null,
-          message: response.data.Note,
+        symbol,
+        data: null,
+        message: response.data.Note,
         };
-      }
+    }
 
-      if (response.data?.["Error Message"]) {
+    if (response.data?.["Error Message"]) {
         return {
-          symbol,
-          data: null,
-          message: response.data["Error Message"],
+        symbol,
+        data: null,
+        message: response.data["Error Message"],
         };
-      }
+    }
 
-      // Process data based on the function
-      if (dataFunction === "GLOBAL_QUOTE") {
+    // Process data based on the function
+    if (dataFunction === "GLOBAL_QUOTE") {
         return {
-          symbol,
-          data: response.data["Global Quote"],
-          lastRefreshed: response.data["Global Quote"]?.["07. latest trading day"],
+        symbol,
+        data: response.data["Global Quote"],
+        lastRefreshed: response.data["Global Quote"]?.["07. latest trading day"],
         };
-      } else {
+    } else {
         // Handle time series data
         const metadataKey = "Meta Data";
         const timeSeriesKey = Object.keys(response.data).find(key => 
-          key.includes("Time Series")
+        key.includes("Time Series")
         );
         
         return {
-          symbol,
-          data: response.data[timeSeriesKey || ""],
-          lastRefreshed: response.data[metadataKey]?.["3. Last Refreshed"],
+        symbol,
+        data: response.data[timeSeriesKey || ""],
+        lastRefreshed: response.data[metadataKey]?.["3. Last Refreshed"],
         };
-      }
+    }
     } catch (error) {
-      console.error("Error fetching stock data:", error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
+    console.error("Error fetching stock data:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
         symbol,
         data: null,
         message: `Error fetching stock data: ${errorMessage}`,
-      };
+    };
     }
-  },
-});
+}
