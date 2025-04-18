@@ -1,12 +1,13 @@
 # Stock Price Lookup with Mastra.ai
 
-This project demonstrates how to build an AI agent that can look up stock prices using the Alpha Vantage API with the Mastra.ai framework.
+This app looks up current and historical stock prices using the Alpha Vantage API with the Mastra.ai framework.
 
 ## Features
 
 - Look up current stock prices using a natural language interface
 - Get daily, weekly, or monthly stock data
 - Compare multiple stocks in a single query
+- Get historical data that can be used for making charts
 
 ## Prerequisites
 
@@ -37,23 +38,13 @@ Once the playground is running, you can ask the agent questions like:
 - "What's the current price of AAPL stock?"
 - "Show me the weekly data for MSFT."
 - "Compare the prices of AAPL, GOOG, and AMZN."
-
-## Run Examples
-
-```bash
-# Get a single stock price
-ts-node examples/getStockPrice.ts
-
-# Compare multiple stocks
-ts-node examples/compareStocks.ts
-```
+- "What was the price of GOOG for the last 10 days?"
 
 ## Project Structure
 
-- `src/mastra/tools/stockTool.ts`: Definition of the stock price lookup tool
-- `src/mastra/agents/assistantAgent.ts`: The AI agent that uses the stock tool
+- `src/mastra/tools/index.ts`: Definition of the stock price lookup tool and historical data tool
+- `src/mastra/agents/index.ts`: The AI agent that uses the two tools
 - `src/mastra/index.ts`: Mastra entry point
-- `examples/`: Example usage scripts
 
 ## API Limits
 
