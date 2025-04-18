@@ -50,7 +50,7 @@ const getStockData = async(symbol: string, dataFunction: DataFunction): Promise<
         },
     });
 
-    // Handle API errors or rate limiting
+    // Handling API errors
     if (response.data?.Note) {
         return {
         symbol,
@@ -67,7 +67,7 @@ const getStockData = async(symbol: string, dataFunction: DataFunction): Promise<
         };
     }
 
-    // Process data based on the function
+    // Processing data based on the function
     if (dataFunction === "GLOBAL_QUOTE") {
         return {
         symbol,
@@ -75,7 +75,7 @@ const getStockData = async(symbol: string, dataFunction: DataFunction): Promise<
         lastRefreshed: response.data["Global Quote"]?.["07. latest trading day"],
         };
     } else {
-        // Handle time series data
+        // Time series data
         const metadataKey = "Meta Data";
         const timeSeriesKey = Object.keys(response.data).find(key => 
         key.includes("Time Series")
@@ -97,3 +97,114 @@ const getStockData = async(symbol: string, dataFunction: DataFunction): Promise<
     };
     }
 }
+
+export const stockChartTool = createTool({
+    id: "stock-chart-tool",
+    description: "Generate stock price chart data for visualization",
+    inputSchema: z.object({
+      symbol: z.string().describe("Stock ticker symbol (e.g., AAPL, MSFT)"),
+      timeframe: z.enum(["daily", "weekly", "monthly"]).default("daily")
+        .describe("Timeframe for the chart data"),
+      limit: z.number().default(15).describe("Number of data points to return"),
+    }),
+    outputSchema: z.object({
+      symbol: z.string(),
+      timeframe: z.string(),
+      dates: z.array(z.string()),
+      prices: z.array(z.number()),
+      error: z.string().optional(),
+    }),
+    execute: async ({ context }) => {
+      const symbol = context.symbol;
+      const timeframe = context.timeframe
+      const limit = context.limit;
+      try {
+        // Mapping timeframe to the specific API function
+        const functionMap = {
+          daily: "TIME_SERIES_DAILY",
+          weekly: "TIME_SERIES_WEEKLY",
+          monthly: "TIME_SERIES_MONTHLY",
+        };
+        
+        const apiFunction = functionMap[timeframe];
+        
+        const response = await axios.get("https://www.alphavantage.co/query", {
+          params: {
+            function: apiFunction,
+            symbol,
+            apikey: API_KEY,
+          },
+        });
+  
+        // Handling API errors
+        if (response.data?.Note) {
+          return {
+            symbol,
+            timeframe,
+            dates: [],
+            prices: [],
+            error: response.data.Note,
+          };
+        }
+  
+        if (response.data?.["Error Message"]) {
+          return {
+            symbol,
+            timeframe,
+            dates: [],
+            prices: [],
+            error: response.data["Error Message"],
+          };
+        }
+  
+        // Getting the time series key of our response
+        const timeSeriesKey = Object.keys(response.data).find(key => 
+          key.includes("Time Series")
+        );
+        
+        if (!timeSeriesKey || !response.data[timeSeriesKey]) {
+          return {
+            symbol,
+            timeframe,
+            dates: [],
+            prices: [],
+            error: "No data found",
+          };
+        }
+        
+        // Getting dates and closing prices
+        const timeSeries = response.data[timeSeriesKey];
+        const dates = Object.keys(timeSeries).slice(0, limit);
+  
+        dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        
+        // Extract closing prices for each date
+        const prices = dates.map(date => {
+          const closePrice = 
+            timeSeries[date]["4. close"] || 
+            timeSeries[date]["close"] || 
+            "0";
+          
+          return parseFloat(closePrice);
+        });
+        
+        return {
+          symbol,
+          timeframe,
+          dates,
+          prices,
+          error: undefined,
+        };
+      } catch (error) {
+        console.error("Error fetching chart data:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          symbol,
+          timeframe,
+          dates: [],
+          prices: [],
+          error: `Error fetching chart data: ${errorMessage}`,
+        };
+      }
+    },
+  });
